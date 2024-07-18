@@ -344,8 +344,9 @@ private final Node<K,V>[] initTable() {
         Node<K,V>[] tab; int sc;
         while ((tab = table) == null || tab.length == 0) {
             if ((sc = sizeCtl) < 0)
-                //等待
+                //sizeCtl为-1表示在初始化中等待
                 Thread.yield(); // lost initialization race; just spin
+            //将sizeCtl cas 替换为 -1
             else if (U.compareAndSwapInt(this, SIZECTL, sc, -1)) {
                 try {
                     if ((tab = table) == null || tab.length == 0) {
@@ -357,6 +358,7 @@ private final Node<K,V>[] initTable() {
                         sc = n - (n >>> 2);
                     }
                 } finally {
+                    //最后将sizeCtl 替换为 sc，表示初始化完成
                     sizeCtl = sc;
                 }
                 break;
