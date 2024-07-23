@@ -381,3 +381,59 @@ static final class ExceptionAttempt<R> implements Attempt<R> {
     }
 ```
 
+#### 超时请求实现
+
+```java
+private static final class FixedAttemptTimeLimit<V> implements AttemptTimeLimiter<V> {
+
+    	//超时请求具体实现
+        private final TimeLimiter timeLimiter;
+    	//超时时间
+        private final long duration;
+    	//超时单位
+        private final TimeUnit timeUnit;
+
+        public FixedAttemptTimeLimit(long duration, @Nonnull TimeUnit timeUnit) {
+            this(new SimpleTimeLimiter(), duration, timeUnit);
+        }
+
+        public FixedAttemptTimeLimit(long duration, @Nonnull TimeUnit timeUnit, @Nonnull ExecutorService executorService) {
+            this(new SimpleTimeLimiter(executorService), duration, timeUnit);
+        }
+
+        private FixedAttemptTimeLimit(@Nonnull TimeLimiter timeLimiter, long duration, @Nonnull TimeUnit timeUnit) {
+            Preconditions.checkNotNull(timeLimiter);
+            Preconditions.checkNotNull(timeUnit);
+            this.timeLimiter = timeLimiter;
+            this.duration = duration;
+            this.timeUnit = timeUnit;
+        }
+
+        @Override
+        public V call(Callable<V> callable) throws Exception {
+            return timeLimiter.callWithTimeout(callable, duration, timeUnit, true);
+        }
+    }
+
+public <T extends @Nullable Object> T callWithTimeout(
+      Callable<T> callable, long timeoutDuration, TimeUnit timeoutUnit)
+      throws TimeoutException, InterruptedException, ExecutionException {
+    checkNotNull(callable);
+    checkNotNull(timeoutUnit);
+    checkPositiveTimeout(timeoutDuration);
+	//线程池提交
+    Future<T> future = executor.submit(callable);
+
+    try {
+        //通过future实现超时请求
+      return future.get(timeoutDuration, timeoutUnit);
+    } catch (InterruptedException | TimeoutException e) {
+      future.cancel(true /* mayInterruptIfRunning */);
+      throw e;
+    } catch (ExecutionException e) {
+      wrapAndThrowExecutionExceptionOrError(e.getCause());
+      throw new AssertionError();
+    }
+  }
+```
+
