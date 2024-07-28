@@ -118,7 +118,7 @@ public <K1 extends K, V1 extends V> LoadingCache<K1, V1> build(
 
 #### LocalCache类
 
-这个类就是guavaCache实现的关键
+这个类就是guavaCache实现的关键，它继承了AbstractMap，并且实现了ConcurrentMap接口，和concurrentHashMap结构类似，但是内部没有红黑树的优化，只有数组和链表
 
 ```java
 LocalCache(
@@ -390,6 +390,7 @@ public V put(K key, V value) {
   }
 
 V put(K key, int hash, V value, boolean onlyIfAbsent) {
+      //分段锁，锁住当前segment
       lock();
       try {
         long now = map.ticker.read();
