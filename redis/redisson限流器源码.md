@@ -46,11 +46,13 @@ private <T> RFuture<T> tryAcquireAsync(RedisCommand<T> command, Long value) {
                           + "released = released + permits;"
                      + "end; "
 
+                        //表示需要释放的令牌数大于0，这里要先对valueName进行处理
                      + "if released > 0 then "
                              //删除过期数据                   
                           + "redis.call('zremrangebyscore', permitsName, 0, tonumber(ARGV[2]) - interval); "
                           + "if tonumber(currentValue) + released > tonumber(rate) then "
-                                 //如果当前令牌加上之前释放的令牌大于rate，就用rate减去当前已经使用的令牌数
+                                 //如果当前令牌加上之前释放的令牌大于rate，就用rate减去当前已经zset中已经使用的令牌数
+                                 //意思就是释放的令牌要加入到 valueName 对应的 value去，表示当前还有多少令牌可用
                                + "currentValue = tonumber(rate) - redis.call('zcard', permitsName); "
                           + "else "
                                  //否则就用当前剩余令牌加上已经释放的令牌数              
