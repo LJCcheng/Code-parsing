@@ -30,7 +30,7 @@ private void lock(long leaseTime, TimeUnit unit, boolean interruptibly) throws I
             return;
         }
 
-    	//发布订阅一个频道
+    	//发布订阅一个频道，这里是通过用当前连接的id作为标识，当前锁的名称作为订阅的对象
         RFuture<RedissonLockEntry> future = subscribe(threadId);
         if (interruptibly) {
             commandExecutor.syncSubscriptionInterrupted(future);
@@ -59,7 +59,7 @@ private void lock(long leaseTime, TimeUnit unit, boolean interruptibly) throws I
                         future.getNow().getLatch().tryAcquire(ttl, TimeUnit.MILLISECONDS);
                     }
                 } else {
-                    //信号量一直等待
+                    //信号量一直等待，相当于把线程挂起，直到被唤醒
                     if (interruptibly) {
                         future.getNow().getLatch().acquire();
                     } else {
@@ -119,7 +119,7 @@ private <T> RFuture<Long> tryAcquireAsync(long waitTime, long leaseTime, TimeUni
                         "redis.call('pexpire', KEYS[1], ARGV[1]); " +
                         "return nil; " +
                         "end; " +
-                        //当前线程已经有锁，这里为可重入锁
+                        //当前线程已经有锁，这里为可重入锁，已经获取到了一次锁，这里再加1
                         "if (redis.call('hexists', KEYS[1], ARGV[2]) == 1) then " +
                         "redis.call('hincrby', KEYS[1], ARGV[2], 1); " +
                         "redis.call('pexpire', KEYS[1], ARGV[1]); " +
