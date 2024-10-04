@@ -285,7 +285,7 @@ public V call(Callable<V> callable) throws ExecutionException, RetryException {
 由它的两个子类来封装结果，包括正常返回结果和异常
 
 ```java
-//封装正常结果价格日历
+//封装正常结果
 static final class ResultAttempt<R> implements Attempt<R> {
         private final R result;
         private final long attemptNumber;
