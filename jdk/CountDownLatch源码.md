@@ -2,6 +2,14 @@
 
 这个类一般用于多线程的任务计数，每个线程完成任务之后，可以执行这个类的内部方法进行监控，内部有个暂停的方法，任务全都完成之后，可以继续执行后续的逻辑。
 
+#### Node节点状态
+
+- `CANCELLED `：值为1，表示节点已被取消。当一个线程等待获取锁的过程中被中断或超时。
+- `SIGNAL `：值为-1，表示后继节点需要被唤醒。当一个节点释放锁的时候，会唤醒它的后继节点，SIGNAL 就用于表示这个需要唤醒的状态。
+- `CONDITION `：值为-2，表示节点在等待条件队列中。当一个线程在等待条件变量时，会被放入条件队列，节点的状态被设置为 CONDITION。
+- `PROPAGATE `：值为-3，用于共享模式。表示 `releaseShared `应该传播。在共享模式下，可能需要通过 PROPAGATE 来通知其他线程继续获取共享资源。
+- 0：表示初始状态或无特殊状态。在等待队列中的节点，如果还没有进入到同步队列中等待获取锁，其状态为初始状态。
+
 它内部还是通过内部类继承`AQS`，来实现主要代码逻辑。
 
 ```java
@@ -94,6 +102,7 @@ private void doAcquireSharedInterruptibly(int arg)
             }
         } finally {
             if (failed)
+               	//取消获取
                 cancelAcquire(node);
         }
     }
@@ -145,7 +154,7 @@ private void doReleaseShared() {
                 int ws = h.waitStatus;
                 if (ws == Node.SIGNAL) {
                     //节点状态为signal表示后续节点需要被唤醒
-                    //cas将signal替换为0
+                    //cas将signal替换为0，将阻塞状态变为初始状态
                     if (!compareAndSetWaitStatus(h, Node.SIGNAL, 0))
                         continue;            // loop to recheck cases
                     //唤醒线程
@@ -153,6 +162,7 @@ private void doReleaseShared() {
                 }
                 else if (ws == 0 &&
                          !compareAndSetWaitStatus(h, 0, Node.PROPAGATE))
+                    //将初始状态变为PROPAGATE
                     continue;                // loop on failed CAS
             }
             if (h == head)                   // loop if head changed
@@ -167,7 +177,7 @@ private void unparkSuccessor(Node node) {
          * fails or if status is changed by waiting thread.
          */
         int ws = node.waitStatus;
-    	//cas将node节点小于0的替换为0
+    	//cas将node节点小于0的替换为0，不正常状态替换为初始状态
         if (ws < 0)
             compareAndSetWaitStatus(node, ws, 0);
 
@@ -179,6 +189,7 @@ private void unparkSuccessor(Node node) {
          */
         Node s = node.next;
         if (s == null || s.waitStatus > 0) {
+            //状态为取消状态时
             s = null;
             //倒序遍历，将node节点状态小于等于0的节点赋值给s节点
             for (Node t = tail; t != null && t != node; t = t.prev)
