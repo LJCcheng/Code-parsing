@@ -70,7 +70,7 @@ private Entry getEntry(ThreadLocal<?> key) {
             if (e != null && e.get() == key)
                 return e;
             else
-                //没有找到元素或者entry为null
+                //没有找到元素（hash冲突）或者entry为null
                 return getEntryAfterMiss(key, i, e);
         }
 
@@ -78,13 +78,13 @@ private Entry getEntryAfterMiss(ThreadLocal<?> key, int i, Entry e) {
             Entry[] tab = table;
             int len = tab.length;
 
-    		//查找的entry不是想要的
+    		//这里相当于是在解决hash冲突
             while (e != null) {
                 ThreadLocal<?> k = e.get();
                 if (k == key)
                     return e;
                 if (k == null)
-                    //清除下标为i的元素，防止内存泄漏
+                    //清除下标为i的元素，防止内存泄漏（主动清理）
                     expungeStaleEntry(i);
                 else
                     //查找下一个元素，就是下标加1
@@ -158,6 +158,7 @@ private T setInitialValue() {
     }
 
 void createMap(Thread t, T firstValue) {
+    	//这里会new 一个ThreadLocalMap来保存线程变量
         t.threadLocals = new ThreadLocalMap(this, firstValue);
     }
 ```
@@ -205,9 +206,13 @@ private static final int INITIAL_CAPACITY = 16; //默认容量
 private int threshold; // Default to 0 扩容因子
 ```
 
+##### 这里为什么是Entry数组？
+
+因为一个线程可以有多个`threadLocal`，这里Entry的下标是通过threadLocal 的 threadLocalhashCode 进行的与操作。
 
 
-`entry`继承自`WeakReference`，`entry`在gc的时候就会被回收
+
+`entry`继承自`WeakReference`，`entry`中的`referent`在gc的时候就会被回收，但是value被 `entry`强引用，就不会回收
 
 ```java
 static class Entry extends WeakReference<ThreadLocal<?>> {
