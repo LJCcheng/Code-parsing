@@ -472,7 +472,7 @@ protected Object createBean(String beanName, RootBeanDefinition mbd, @Nullable O
 		}
 
 		try {
-            //创建bean
+            //创建bean的主要实现逻辑
 			Object beanInstance = doCreateBean(beanName, mbdToUse, args);
 			if (logger.isTraceEnabled()) {
 				logger.trace("Finished creating instance of bean '" + beanName + "'");
@@ -544,7 +544,7 @@ protected Object doCreateBean(String beanName, RootBeanDefinition mbd, @Nullable
 		}
 
 		// Initialize the bean instance.
-    	//初始化bean
+    	//初始化上面的不完整bean
 		Object exposedObject = bean;
 		try {
             //填充实例的属性，这里会去加载bean的其他依赖，通过自动注入的方式，逻辑有点复杂，在这个注入过程中这里面就会出现缓存依赖的情况
@@ -604,5 +604,15 @@ protected Object doCreateBean(String beanName, RootBeanDefinition mbd, @Nullable
 
 		return exposedObject;
 	}
+```
+
+
+
+#### 为什么这里要三级缓存？两级缓存可不可以？
+
+```txt
+看到这里，我就有疑问，为什么这里需要三级缓存
+addSingletonFactory(beanName, () -> getEarlyBeanReference(beanName, mbd, bean));
+上面的这段代码逻辑是调用函数式接口获取到早期半成品的bean，然后直接塞进三级缓存。但是在getSingleton()获取三级缓存方法中，这里并没有对三级缓存做过多的处理，是直接把三级缓存的半成品移到二级缓存之中，那为什么addSingletonFactory()方法不直接将bean放入二级缓存呢？这里参考了文章 https://segmentfault.com/a/1190000023647227,里面说是可以的，但是这样不符合spring的生命周期。
 ```
 
