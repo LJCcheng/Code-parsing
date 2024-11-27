@@ -233,16 +233,17 @@ protected Object getSingleton(String beanName, boolean allowEarlyReference) {
 
 这里为什么要判断是否为工厂呢？因为之前三级缓存里面存放的是工厂，然后存入了二级缓存，我们需要的是bean，不是工厂，所以需要处理
 
-```
+```java
 protected Object getObjectForBeanInstance(
       Object beanInstance, String name, String beanName, @Nullable RootBeanDefinition mbd) {
 
    // Don't let calling code try to dereference the factory if the bean isn't a factory.
-   //工厂引用
+   //工厂引用，根据名字来判断是否是工厂（名字由&开头）
    if (BeanFactoryUtils.isFactoryDereference(name)) {
       if (beanInstance instanceof NullBean) {
          return beanInstance;
       }
+       //由&开头，但不是工厂就报错
       if (!(beanInstance instanceof FactoryBean)) {
          throw new BeanIsNotAFactoryException(beanName, beanInstance.getClass());
       }
@@ -260,12 +261,13 @@ protected Object getObjectForBeanInstance(
       return beanInstance;
    }
 
+    //这里之后这个bean就一定是工厂，后面就通过工厂来创建bean
    Object object = null;
    if (mbd != null) {
       mbd.isFactoryBean = true;
    }
    else {
-   	  //从缓存中获取
+   	  //从缓存中获取，这个缓存是下面方法设置的
       object = getCachedObjectForFactoryBean(beanName);
    }
    if (object == null) {
@@ -306,10 +308,10 @@ protected Object getObjectFromFactoryBean(FactoryBean<?> factory, String beanNam
 								// Temporarily return non-post-processed object, not storing it yet..
 								return object;
 							}
-							//前置
+							//前置操作，将bean添加到 表示正在创建中的集合（singletonsCurrentlyInCreation）
 							beforeSingletonCreation(beanName);
 							try {
-								//创建后处理
+								//由工厂创建之后，进行 BeanPostProcessor 接口处理，这里我们可以自己实现这个接口，重写里面的逻辑，实现自己的功能
 								object = postProcessObjectFromFactoryBean(object, beanName);
 							}
 							catch (Throwable ex) {
@@ -317,7 +319,7 @@ protected Object getObjectFromFactoryBean(FactoryBean<?> factory, String beanNam
 										"Post-processing of FactoryBean's singleton object failed", ex);
 							}
 							finally {
-								//后置
+								//后置操作，将前置操作集合添加的元素清除
 								afterSingletonCreation(beanName);
 							}
 						}
@@ -398,11 +400,11 @@ public Object getSingleton(String beanName, ObjectFactory<?> singletonFactory) {
 					if (recordSuppressedExceptions) {
 						this.suppressedExceptions = null;
 					}
-                    //
+                    //将bean从正在创建的集合中移除
 					afterSingletonCreation(beanName);
 				}
 				if (newSingleton) {
-                    //存入缓存
+                    //存入一级缓存，清除2,3级缓存并且加入已注册集合
 					addSingleton(beanName, singletonObject);
 				}
 			}
@@ -457,7 +459,7 @@ protected Object createBean(String beanName, RootBeanDefinition mbd, @Nullable O
 		}
 
 		try {
-            //实例化的前置处理
+            // 这里是 aop 的实现关键，在bean初始化之前就拦截下来，可以返回一个代理类，这里面逻辑在aop笔记里面
 			// Give BeanPostProcessors a chance to return a proxy instead of the target bean instance.
 			Object bean = resolveBeforeInstantiation(beanName, mbdToUse);
 			if (bean != null) {
@@ -470,7 +472,7 @@ protected Object createBean(String beanName, RootBeanDefinition mbd, @Nullable O
 		}
 
 		try {
-            //创建
+            //创建bean
 			Object beanInstance = doCreateBean(beanName, mbdToUse, args);
 			if (logger.isTraceEnabled()) {
 				logger.trace("Finished creating instance of bean '" + beanName + "'");
@@ -502,7 +504,7 @@ protected Object doCreateBean(String beanName, RootBeanDefinition mbd, @Nullable
 			instanceWrapper = this.factoryBeanInstanceCache.remove(beanName);
 		}
 		if (instanceWrapper == null) {
-            //创建bean实例，这里面主要逻辑就是通过构造器创建
+            //创建bean实例，这里面主要逻辑就是通过工厂，自动注入，无参构造器创建实例，将bean提前创建，但是里面的属性是不完整的
 			instanceWrapper = createBeanInstance(beanName, mbd, args);
 		}
 		Object bean = instanceWrapper.getWrappedInstance();
@@ -512,7 +514,7 @@ protected Object doCreateBean(String beanName, RootBeanDefinition mbd, @Nullable
 		}
 
 		// Allow post-processors to modify the merged bean definition.
-    	//后置处理
+    	//判断是否有后置处理
 		synchronized (mbd.postProcessingLock) {
 			if (!mbd.postProcessed) {
 				try {
@@ -536,8 +538,8 @@ protected Object doCreateBean(String beanName, RootBeanDefinition mbd, @Nullable
 				logger.trace("Eagerly caching bean '" + beanName +
 						"' to allow for resolving potential circular references");
 			}
-            //提前将创建的 bean 实例加入到 singletonFactories 中
-            //避免循环依赖
+            //提前将 创建bean的工厂 加入到 singletonFactories 中，就是三级缓存的第三级
+            //避免循环依赖，后面有个populateBean方法区加载其他依赖，如果出现循环依赖就会执行这个工厂方法创建bean
 			addSingletonFactory(beanName, () -> getEarlyBeanReference(beanName, mbd, bean));
 		}
 
@@ -545,7 +547,9 @@ protected Object doCreateBean(String beanName, RootBeanDefinition mbd, @Nullable
     	//初始化bean
 		Object exposedObject = bean;
 		try {
+            //填充实例的属性，这里会去加载bean的其他依赖，通过自动注入的方式，逻辑有点复杂，在这个注入过程中这里面就会出现缓存依赖的情况
 			populateBean(beanName, mbd, instanceWrapper);
+            //初始化bean，有前置操作和后置操作，通过实现beanPostProcessor接口，还有InitializingBean接口的afterPropertiesSet方法
 			exposedObject = initializeBean(beanName, exposedObject, mbd);
 		}
 		catch (Throwable ex) {
