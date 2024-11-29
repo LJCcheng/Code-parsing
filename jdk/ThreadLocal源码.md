@@ -381,3 +381,13 @@ private void replaceStaleEntry(ThreadLocal<?> key, Object value,
 
 
 
+#### 疑问解答
+
+1. 既然正常情况下线程在每次使用之后都会销毁，那么线程里面保存的`threadlocalMap`也会被销毁，那就不存在内存泄漏了；但是如果在使用线程池的情况下，线程复用了之后，线程里面的`threadlocal`是不会销毁的，但是在每次访问`threadlocal`的时候，它会清理`entry[]`数组里面`threadlocal`引用为`null`的值，这里应该没有网上说的那么严重才对。
+
+   ```txt
+   1）每次访问threadlocal的时候，它是不会每次都清理entry[]数组为null的threadlocal，只会在get方法获取不到的时候才会清理，以及set方法设置的key不存在的时候等才会清理，并不是每次都会清理。
+   2）内存泄漏和内存溢出概念不同，内存泄漏是threadlocal被回收，导致无法通过threadlocal访问这个资源，导致这个资源一直存在在内存，无法被回收，无法被再次访问。
+   ```
+
+   
