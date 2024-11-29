@@ -459,7 +459,7 @@ protected Object createBean(String beanName, RootBeanDefinition mbd, @Nullable O
 		}
 
 		try {
-            // 这里是 aop 的实现关键，在bean初始化之前就拦截下来，可以返回一个代理类，这里面逻辑在aop笔记里面
+            // 在bean初始化之前就拦截下来，可以返回一个代理类，如果我们有设置TargetSource，就会返回代理类
 			// Give BeanPostProcessors a chance to return a proxy instead of the target bean instance.
 			Object bean = resolveBeforeInstantiation(beanName, mbdToUse);
 			if (bean != null) {
@@ -549,7 +549,7 @@ protected Object doCreateBean(String beanName, RootBeanDefinition mbd, @Nullable
 		try {
             //填充实例的属性，这里会去加载bean的其他依赖，通过自动注入的方式，逻辑有点复杂，在这个注入过程中这里面就会出现缓存依赖的情况
 			populateBean(beanName, mbd, instanceWrapper);
-            //初始化bean，有前置操作和后置操作，通过实现beanPostProcessor接口，还有InitializingBean接口的afterPropertiesSet方法
+            //初始化bean，有前置操作和后置操作，通过实现beanPostProcessor接口，还有InitializingBean接口的afterPropertiesSet方法，在初始化结束的最后这里面，有个判断后置处理，可以为生成的类生成一个代理类，aop的关键就是在这
 			exposedObject = initializeBean(beanName, exposedObject, mbd);
 		}
 		catch (Throwable ex) {

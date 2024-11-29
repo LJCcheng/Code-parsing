@@ -136,7 +136,7 @@ protected Object createProxy(Class<?> beanClass, @Nullable String beanName,
 			}
 		}
 
-    	//包装切面
+    	//包装切面，specificInterceptors是我们自己定义的切面，将它进行包装为advisor
 		Advisor[] advisors = buildAdvisors(beanName, specificInterceptors);
 		proxyFactory.addAdvisors(advisors);
 		proxyFactory.setTargetSource(targetSource);
