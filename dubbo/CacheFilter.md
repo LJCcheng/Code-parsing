@@ -1,6 +1,6 @@
 ## CacheFilter
 
-简介：这个`cacheFilter`是`dubbo`自己封装的限流过滤器，包含了`threadlocal`，`lru`，`lfu`，`jcache`，`expiring`限流
+简介：这个`cacheFilter`是`dubbo`自己封装的缓存存储容器，包含了`threadlocal`，`lru`，`lfu`，`jcache`，`expiring`等内存淘汰策略
 
 ### `CacheFactory`工厂
 
