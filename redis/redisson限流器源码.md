@@ -46,13 +46,11 @@ private <T> RFuture<T> tryAcquireAsync(RedisCommand<T> command, Long value) {
                           + "released = released + permits;"
                      + "end; "
 
-                        //表示需要释放的令牌数大于0，这里要先对valueName进行处理
                      + "if released > 0 then "
                              //删除过期数据                   
                           + "redis.call('zremrangebyscore', permitsName, 0, tonumber(ARGV[2]) - interval); "
                           + "if tonumber(currentValue) + released > tonumber(rate) then "
-                                 //如果当前令牌加上之前释放的令牌大于rate，就用rate减去当前已经zset中已经使用的令牌数
-                                 //意思就是释放的令牌要加入到 valueName 对应的 value去，表示当前还有多少令牌可用
+                                 //如果当前令牌加上之前释放的令牌大于rate，就用rate减去当前已经使用的令牌数
                                + "currentValue = tonumber(rate) - redis.call('zcard', permitsName); "
                           + "else "
                                  //否则就用当前剩余令牌加上已经释放的令牌数              
@@ -89,6 +87,7 @@ private <T> RFuture<T> tryAcquireAsync(RedisCommand<T> command, Long value) {
 3. `getClientValueName()`方法获取的是单机限流器值的名称
 4. `getPermitsName()`方法获取的是分布式zset的名称 （redisson老版本是不存在的，因为是直接对字符串的key进行操作）
 5. `getClientPermitsName()`方法获取的是单机zset的名称（redisson老版本是不存在的，因为是直接对字符串的key进行操作）
+5. 这里使用zset结构，因为每次请求可能需要获取不同数量的令牌，比如场景：普通用户每次请求需要2个token，但是vip用户每次请求只需要1个token
 
 #### trySetRate方法
 
